@@ -357,5 +357,55 @@ find_and_replace_words <- function(text_vector, replacement_words, replacement_p
     wrd = replacement_vect,
     cnt = replacement_count
   )
-  
 }
+
+
+# Dice roll in the pocket DB ----
+log_it("Loading data from DB")
+conn <- dbConnect(RSQLite::SQLite(), dbname = "eng_auto_dict.db")
+sql_query <-
+  "
+  SELECT word_id, word, translation, meaning, examples, iter, max_dt
+  FROM 
+  (
+    SELECT a.*
+    , e.examples
+    , m.meaning
+    , b.max_dt, b.iter
+    , row_number() over (partition by b.iter order by random()) as rn
+    FROM word_dict a
+    JOIN 
+    (
+      SELECT word_id, max(action_dt) as max_dt, count(*) as iter
+      FROM word_history
+      WHERE action in ('adding', 'email')
+      GROUP BY word_id
+
+    ) b on a.word_id = b.word_id
+    LEFT JOIN word_meaning m on a.word_id = m.word_id
+    LEFT JOIN word_examples e on a.word_id = e.word_id
+  ) 
+  WHERE rn = 1
+  ORDER BY iter
+  "
+
+# оne random word from each iteration group
+export_words <- 
+  dbGetQuery(conn, sql_query) %>% 
+  as_tibble() %>% 
+  mutate_at(vars(max_dt), as.Date) %>% 
+  filter(iter <= !!max_repeat_cnt)
+
+# selecting words for email
+more_iter <- setdiff(export_words$iter, 1L) %>% 
+  sample(x = ., size = 2L, prob = 1L/(.)^2L)
+
+selected_words <- 
+  export_words %>% 
+  filter(iter %in% c(1L, more_iter)) %>% 
+  arrange(iter)
+
+# empty tbl for title emoji
+tiltle_emoji_df <- selected_words[, "iter"] %>% 
+  add_column(emoji = as.character(NA))
+
