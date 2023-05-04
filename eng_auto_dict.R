@@ -475,12 +475,13 @@ for (i in 1:nrow(selected_words)) {
             ), "")
   
   
-  # Exploring info about word in Cambridge dictionary ----
+  # Word meaning ----
   
-  # Correct link and main info
+  # main HTML page info
   express_tbl <- cambridge_express(word)
   found_word <- express_tbl$original
   
+  # green label if it's true
   fuzzy_match <- str_detect(word, found_word) || str_detect(found_word, word)
   
   # Cambridge part title
@@ -500,7 +501,7 @@ for (i in 1:nrow(selected_words)) {
       "</h3>"
     )
   
-  # load HTML page of the word
+  # parsing HTML page
   export_html <- read_html_iter(express_tbl$link)
   
   # html body and span names
@@ -513,9 +514,10 @@ for (i in 1:nrow(selected_words)) {
   div_data <- body %>% html_elements("div")
   div_names <- div_data %>% map_chr(html_attr, name = "class")
   
-  # word details (usage, pronon, and etc.)
+  # word details (usage, pronoun, and etc.)
   div_details <- div_data[which(div_names == "pos-header dpos-h")]
   
+  # word spelling details 
   pron_dron <- ifelse(
     length(div_details) == 0, "",
     div_details %>% 
@@ -535,6 +537,7 @@ for (i in 1:nrow(selected_words)) {
       glue_data("{emj} {tags}") %>% 
       paste0(collapse = "<br>"))
   
+  # word spelling and part of speach info 
   html_word_details <- 
     ifelse(
       length(div_details) == 0, "",
@@ -550,12 +553,13 @@ for (i in 1:nrow(selected_words)) {
         glue('{pron_dron}<ol start="1">{html} </ol>', html = .)
     )
   
-  
-  # word meaning and examples 
+  # word meaning and examples (in an ugly way)
   div_meaning <- div_data[which(div_names == "ddef_h")]
   div_examples <- div_data[which(div_names == "def-body ddef_b")]
   
+  # word meaning and examples (in a pretty way)
   text_meaning <- map_chr(div_meaning, tags_to_sentences)
+  # some clearing up
   wrong_meaning <- str_starts(text_meaning, pattern = "past participle|past simple|present participle")
   text_meaning2 <- text_meaning[!wrong_meaning]
   text_examples <- map_chr(div_examples, tags_to_sentences) %>% 
@@ -565,7 +569,7 @@ for (i in 1:nrow(selected_words)) {
     map_chr(~gsub("Compare.*","",.)) %>% 
     map_chr(~gsub("See.*","",.))
   
-  # all possible word forms
+  # all possible word forms (!)
   possible_words <- 
     unique(c(
       word, found_word,
@@ -577,7 +581,8 @@ for (i in 1:nrow(selected_words)) {
     )) %>% 
     c(str_to_sentence(.), .)
   
-  
+  # Saving examples ----
+  log_it("Checking word examples for test")
   already_have_cnt <- 
     dbGetQuery(
       conn,
@@ -592,7 +597,7 @@ for (i in 1:nrow(selected_words)) {
   
   if (fuzzy_match & already_have_cnt == 0L) {
     
-    log_it("Clearing examples for adding in DB")
+    # clearing examples
     text_sentences <- text_examples %>%
       glue_collapse(sep = "<br>") %>%
       str_split("<br>") %>% 
@@ -604,20 +609,22 @@ for (i in 1:nrow(selected_words)) {
     
     if (length(text_sentences) > 0) {
       
-      log_it("Preparing examples for adding in DB")
-      clear_text_sentences <- find_and_replace_words(text_sentences, possible_words, "***") %>% 
+      # replacing words for ***
+      clear_text_sentences <- 
+        find_and_replace_words(text_sentences, possible_words, "***") %>% 
         filter(cnt == 1L) %>% 
         select(txt, wrd)
       
       if (nrow(clear_text_sentences) > 0) {
         
-        log_it("Adding examples in DB")
+        log_it("Adding new examples in DB")
         tibble(word_id, clear_text_sentences) %>% 
           dbAppendTable(conn, "word_cambridge_examples", .)
       }
     }
   }
   
+  # Finishing touches ----
   # highlighting extra information in text
   text_examples1 <- text_examples %>% 
     map(str_replace_all,
@@ -645,6 +652,7 @@ for (i in 1:nrow(selected_words)) {
          emoji = emo::ji("print"),
          link = express_tbl$link)
   
+  # word corpus
   email_words_list[[i]] <- 
     paste(
       html_word_head,
@@ -656,3 +664,41 @@ for (i in 1:nrow(selected_words)) {
     )
   
 }
+
+
+
+# Labels & Codes ----
+# parsing labels from email
+labels_print <- email_words_list %>%
+  map(str_extract_all, pattern = "\\[.*?\\]") %>%
+  flatten() %>% reduce(c) %>% 
+  unique()
+labels_match <- labels_print %>% 
+  map_chr(str_replace_all,
+          pattern = "(\\[)[[:space:]]|[[:space:]](\\])",
+          replacement = "\\1\\2") %>% 
+  map_chr(str_remove_all,
+          pattern = "\\(|\\)")
+# labels from Cambridge page
+labels_dict <- dbReadTable(conn, "labels_and_codes_dict") %>% as_tibble()
+
+# emoji labels
+emoji_labels_df <- tiltle_emoji_df %>% 
+  mutate(descr = if_else(iter == 1, "new", paste0("x", iter))) %>% 
+  select(label = emoji, descr)
+
+# HTML labels block
+html_labels <- labels_dict %>%
+  filter(label %in% !!labels_match) %>%
+  inner_join(tibble(label = labels_match, labels_print), by = "label") %>% 
+  mutate_at(vars(description), str_to_lower) %>%
+  mutate_at(vars(description), str_remove_all, pattern = "\\.") %>% 
+  mutate_at(vars(description), str_replace_all, pattern = ":", replacement = ",") %>% 
+  select(label = labels_print, description) %>% 
+  nest(data = description) %>% 
+  mutate(descr = map_chr(data, ~ glue_collapse(.$description, sep = ";"))) %>% 
+  select(label, descr) %>% 
+  add_row(emoji_labels_df) %>% 
+  glue_data("<b>{label}</b>: {descr}") %>% 
+  paste0(collapse = "<br>") %>% 
+  glue('<small><h2>Labels \\& Codes</h2>{input}</small>', input = .)
