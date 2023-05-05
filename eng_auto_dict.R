@@ -669,6 +669,7 @@ for (i in 1:nrow(selected_words)) {
 
 # Labels & Codes ----
 # parsing labels from email
+log_it("Labels cooking")
 labels_print <- email_words_list %>%
   map(str_extract_all, pattern = "\\[.*?\\]") %>%
   flatten() %>% reduce(c) %>% 
@@ -679,7 +680,7 @@ labels_match <- labels_print %>%
           replacement = "\\1\\2") %>% 
   map_chr(str_remove_all,
           pattern = "\\(|\\)")
-# labels from Cambridge page
+# labels from Cambridge site
 labels_dict <- dbReadTable(conn, "labels_and_codes_dict") %>% as_tibble()
 
 # emoji labels
@@ -702,3 +703,51 @@ html_labels <- labels_dict %>%
   glue_data("<b>{label}</b>: {descr}") %>% 
   paste0(collapse = "<br>") %>% 
   glue('<small><h2>Labels \\& Codes</h2>{input}</small>', input = .)
+
+
+# Test time ----
+log_it("Test preparing")
+sql_query <-
+  "
+  SELECT word_id, word, txt, wrd
+  FROM 
+  (
+    SELECT a1.*, a2.txt, a2.wrd
+    , dense_rank() over (order by sin(a1.word_id + julianday('now'))) as dr
+    , row_number() over (partition by a1.word_id order by random()) as rn
+    FROM word_dict a1
+    JOIN word_cambridge_examples a2 on a1.word_id = a2.word_id
+    LEFT JOIN
+    (
+      SELECT DISTINCT word_id
+      FROM word_history
+      WHERE action = 'checking' and julianday('now') - julianday(action_dt) <= 7
+      and word_id in (SELECT word_id FROM word_history where action = 'email')
+    ) a3 on a1.word_id = a3.word_id
+    WHERE a3.word_id is null
+  )
+  WHERE dr <= 3 and rn <= 4
+  ORDER BY random()
+  "
+
+export_examples <- 
+  dbGetQuery(conn, sql_query) %>% 
+  as_tibble()
+
+random_emoji = emo::ji("fruit")
+clear_examples <- 
+  export_examples %>% 
+  mutate_at(
+    vars(txt),
+    str_replace_all,
+    pattern = "\\*\\*\\*", 
+    replacement = random_emoji
+  ) %>% 
+  mutate_at(
+    vars(wrd),
+    str_to_lower
+  )
+
+export_words <- clear_examples %>% 
+  distinct(word_id, word) %>% 
+  arrange(runif(n()))
