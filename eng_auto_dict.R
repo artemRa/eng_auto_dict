@@ -1,13 +1,13 @@
 # Auto Dict
-# v 1.0.
+# v4.6
 
 
-# Logs are above all  ----
+# Logs Above All  ----
 log_it <- function(text) message(paste(Sys.time(), text))
 log_it("Lets start!")
 
 
-# Libraries hangout ----
+# Libraries Hangout ----
 log_it("Loading libraries")
 suppressPackageStartupMessages(
   suppressWarnings({
@@ -23,11 +23,10 @@ suppressPackageStartupMessages(
 )
 
 
-# Configs time ----
+# Config-tastic Adventures ----
 log_it("Configs setting")
 max_repeat_cnt = 7L # max iter of word repeating
 meaning_length = 3L # max number of word meanings
-max_attempt = 5L # max attempts of email sending
 email_secrect <- yaml::read_yaml("email.yaml") # secret config based on list() structure
 invisible(Sys.setlocale("LC_TIME", "English")) # ignoring local time setting
 
@@ -360,7 +359,7 @@ find_and_replace_words <- function(text_vector, replacement_words, replacement_p
 }
 
 
-# Dice roll in the pocket DB ----
+# Dice Roll in the Pocket DB ----
 log_it("Loading data from DB")
 conn <- dbConnect(RSQLite::SQLite(), dbname = "eng_auto_dict.db")
 sql_query <-
@@ -410,7 +409,7 @@ tiltle_emoji_df <- selected_words[, "iter"] %>%
   add_column(emoji = as.character(NA))
 
 
-# Stuffing for the email ----
+# Cook Up Some Email Delight ----
 log_it("Start of cooking")
 email_words_list <- list()
 
@@ -666,20 +665,20 @@ for (i in 1:nrow(selected_words)) {
 }
 
 
-
-# Labels & Codes ----
-# parsing labels from email
+# Code-licious Labels ----
 log_it("Labels cooking")
+
+# parsing labels from email
 labels_print <- email_words_list %>%
   map(str_extract_all, pattern = "\\[.*?\\]") %>%
   flatten() %>% reduce(c) %>% 
   unique()
+# extra spaces and minutiae
 labels_match <- labels_print %>% 
   map_chr(str_replace_all,
           pattern = "(\\[)[[:space:]]|[[:space:]](\\])",
           replacement = "\\1\\2") %>% 
-  map_chr(str_remove_all,
-          pattern = "\\(|\\)")
+  map_chr(str_remove_all, pattern = "\\(|\\)")
 # labels from Cambridge site
 labels_dict <- dbReadTable(conn, "labels_and_codes_dict") %>% as_tibble()
 
@@ -705,8 +704,9 @@ html_labels <- labels_dict %>%
   glue('<small><h2>Labels \\& Codes</h2>{input}</small>', input = .)
 
 
-# Test time ----
-log_it("Test preparing")
+# Test Me Maybe ----
+log_it("Test initiation")
+# random examples from BD
 sql_query <-
   "
   SELECT word_id, word, txt, wrd
@@ -729,11 +729,11 @@ sql_query <-
   WHERE dr <= 3 and rn <= 4
   ORDER BY random()
   "
-
 export_examples <- 
   dbGetQuery(conn, sql_query) %>% 
   as_tibble()
 
+# preparing examples 
 random_emoji = emo::ji("fruit")
 clear_examples <- 
   export_examples %>% 
@@ -747,7 +747,132 @@ clear_examples <-
     vars(wrd),
     str_to_lower
   )
-
+# selected words for test
 export_words <- clear_examples %>% 
   distinct(word_id, word) %>% 
   arrange(runif(n()))
+
+# cooking test HTML body
+if (nrow(export_words) == 0L) {
+  html_checking <- "" 
+} else {
+  
+  log_it("Test body preparing")
+  
+  html_head <- paste(
+    "<br><br><hr>",
+    "<h2>", "TEST", "</h2>",
+    "<h4>", "Replace",
+    glue("\U00AB{emoji}\U00BB", emoji = random_emoji),
+    "with", 
+    export_words$word %>% 
+      map_df(cambridge_express) %>% 
+      glue_data('<b><a href="{link}">{word}</a></b>') %>% 
+      glue_collapse(sep = ", ", last = " and "),
+    "using correct forms. Check the correct answers below.",
+    "</h4>"
+  )
+  
+  html_examples <- clear_examples %>% 
+    mutate_at(vars(txt), ~ str_replace_all(., "\\(([^()]+)\\)", "")) %>% 
+    mutate_at(vars(txt), ~ str_replace_all(., "  ", " ")) %>% 
+    mutate_at(vars(txt), str_squish) %>% 
+    glue_data('<li>{txt}<br><br></li>') %>% 
+    paste0(collapse = "") %>% 
+    glue('<ol>{html}<b>\U2193</b>{ending} </ol>', 
+         html = .,
+         ending = paste0(rep("<br>", 20L), collapse = ""))
+  
+  html_answers <- clear_examples %>% 
+    glue_data("<li>{wrd}</li>") %>% 
+    paste0(collapse = "") %>% 
+    glue('<ol start="1">{html} </ol>', html = .)
+  
+  html_checking <- paste(html_head, html_examples, html_answers)
+}
+
+
+# Whipping Email into Shape ----
+# upper header
+html_header <- 
+  paste(
+    selected_words %>% 
+      glue_data("**{word}**") %>% 
+      glue_collapse(sep = ", ", last = " and ")
+  ) %>% 
+  str_to_sentence()
+
+# motivation in the end
+html_praise <- paste0(
+  "<br><br><br><h2>", sample(str_to_sentence(praise_parts$exclamation), 1), "! ", 
+  praise::praise(), " ",
+  emo::ji("face"), "</h2>")
+
+# email composing
+log_it("Email composing")
+composed_email <- 
+  compose_email(
+    header = md(html_header),
+    body = list(md(email_words_list), md(html_labels), md(html_checking), md(html_praise)),
+    footer = md("Auto Dict v4.6<br>Created by Artem R.")
+  )
+
+
+# Inbox Injection ----
+log_it("Sending result")
+max_attempt = 5L # max attempts of email sending
+sending_result <- F
+attempt <- 0
+
+# sending email even if gmail doesnt work
+while ((!sending_result) & (attempt <= max_attempt)) {
+  
+  sending_result <- 
+    tryCatch({
+      composed_email %>% 
+        smtp_send(
+          from = c("Auto Dictionary" = email_secrect$username),
+          to = email_secrect$to,
+          bcc = email_secrect$bcc,
+          subject = "Words of the day",
+          credentials = creds_envvar(
+            user = email_secrect$username,
+            provider = "gmail"
+          )
+        )
+      TRUE
+    },
+    error = function(cond) FALSE
+    )
+  
+  attempt <- attempt + 1
+  Sys.sleep(2)
+  
+}
+
+# Log in result in DB
+log_it("Adding transaction in DB")
+if (sending_result) {
+  
+  selected_words %>% 
+    select(word_id) %>% 
+    mutate(
+      action = "email",
+      action_dt = format(Sys.Date(), "%Y-%m-%d")
+    ) %>% 
+    dbWriteTable(conn, "word_history", value = ., append = TRUE)
+  
+  if (nrow(export_words) > 0) {
+    export_words %>% 
+      select(word_id) %>% 
+      mutate(
+        action = "checking",
+        action_dt = format(Sys.Date(), "%Y-%m-%d")
+      ) %>% 
+      dbWriteTable(conn, "word_history", value = ., append = TRUE)
+  }
+}
+
+# Disconnecting DB 
+dbDisconnect(conn)
+log_it("End of task")
