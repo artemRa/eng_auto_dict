@@ -1,4 +1,4 @@
-Untitled
+eng_auto_dict
 ================
 
 ## Overview
@@ -70,7 +70,7 @@ py_word_forms("bland")
 ```
 
     ## $n
-    ## [1] "blandnesses" "blandness"  
+    ## [1] "blandness"   "blandnesses"
     ## 
     ## $a
     ## [1] "bland"
@@ -115,4 +115,4 @@ paste0(
 )
 ```
 
-    ## [1] "Aw! You are ace!"
+    ## [1] "Hurrah! You are finest!"
