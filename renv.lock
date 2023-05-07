@@ -657,6 +657,17 @@
       ],
       "Hash": "9a6564184dc4a81daea4f1d7ce357c6a"
     },
+    "gsheet": {
+      "Package": "gsheet",
+      "Version": "0.4.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "httr",
+        "stringr"
+      ],
+      "Hash": "98536a79fe6edba6ded402ad0d74c69d"
+    },
     "gtable": {
       "Package": "gtable",
       "Version": "0.3.0",
