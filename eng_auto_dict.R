@@ -361,12 +361,10 @@ log_it("Loading data from DB")
 conn <- dbConnect(RSQLite::SQLite(), dbname = "eng_auto_dict.db")
 sql_query <-
   "
-  SELECT word_id, word, translation, meaning, examples, iter, max_dt
+  SELECT word_id, word, translation, source, iter, max_dt
   FROM 
   (
     SELECT a.*
-    , e.examples
-    , m.meaning
     , b.max_dt, b.iter
     , row_number() over (partition by b.iter order by random()) as rn
     FROM word_dict a
@@ -378,8 +376,6 @@ sql_query <-
       GROUP BY word_id
 
     ) b on a.word_id = b.word_id
-    LEFT JOIN word_meaning m on a.word_id = m.word_id
-    LEFT JOIN word_examples e on a.word_id = e.word_id
   ) 
   WHERE rn = 1
   ORDER BY iter
@@ -418,6 +414,7 @@ for (i in 1:nrow(selected_words)) {
   word <- selected_words$word[i]
   word_id <- selected_words$word_id[i]
   word_translate <- selected_words$translation[i]
+  word_source <- selected_words$source[i]
   word_iter <- selected_words$iter[i]
   word_date <- format(selected_words$max_dt, "%b %e, %Y")[i]
   log_it(paste(i, word))
@@ -429,8 +426,9 @@ for (i in 1:nrow(selected_words)) {
   html_word_head <- 
     paste(
       "<h1>", temoji, word,
-      "<h2>", emo::ji("ru"), word_translate, "<br>", 
-      "<small>", emo::ji("thirty"), word_date, 
+      "<h2>", emo::ji("ru"), word_translate, "<br>",
+      "<small>", emo::ji("thirty"), word_date, "<br>",
+      emo::ji("fox_face"), word_source,
       "</small>", "</h2>",
       "</h1>"
     )
