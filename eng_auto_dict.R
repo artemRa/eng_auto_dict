@@ -1,7 +1,4 @@
-# Auto Dict
-# v4.6
-
-
+# Auto Dict v4.6
 # Logs Above All  ----
 log_it <- function(text) message(paste(Sys.time(), text))
 log_it("Lets start!")
@@ -820,7 +817,8 @@ composed_email <-
 
 # Inbox Injection ----
 log_it("Sending result")
-max_attempt = 5L # max attempts of email sending
+max_attempt = 5L # max attempts of email sending 
+Sys.setenv(SMTP_PASSWORD = email_secrect$password) # pass_envvar
 sending_result <- F
 attempt <- 0
 
