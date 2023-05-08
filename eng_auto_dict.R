@@ -803,13 +803,21 @@ html_praise <- paste0(
   praise::praise(), " ",
   emo::ji("face"), "</h2>")
 
+# extra details
+html_footer <- paste0(
+  "Auto Dict v4.6", "<br>",
+  "Created by Artem R.", "<br>",
+  emo::ji("octopus"),
+  '[**GitHub**](https://github.com/artemRa/eng_auto_dict)'
+)
+
 # email composing
 log_it("Email composing")
 composed_email <- 
   compose_email(
     header = md(html_header),
     body = list(md(email_words_list), md(html_labels), md(html_checking), md(html_praise)),
-    footer = md("Auto Dict v4.6<br>Created by Artem R.")
+    footer = md(html_footer)
   )
 
 
