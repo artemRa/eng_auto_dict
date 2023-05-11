@@ -366,7 +366,7 @@ sql_query <-
   (
     SELECT a.*
     , b.max_dt, b.iter
-    , row_number() over (partition by b.iter order by random()) as rn
+    , row_number() over (partition by b.iter, a.source order by random()) as rn
     FROM word_dict a
     JOIN 
     (
@@ -386,7 +386,10 @@ export_words <-
   dbGetQuery(conn, sql_query) %>% 
   as_tibble() %>% 
   mutate_at(vars(max_dt), as.Date) %>% 
-  filter(iter <= !!max_repeat_cnt)
+  filter(iter <= !!max_repeat_cnt) %>% 
+  group_by(iter) %>%
+  slice_sample(n = 1L) %>% 
+  ungroup()
 
 # selecting words for email
 more_iter <- setdiff(export_words$iter, 1L) %>% 
@@ -804,7 +807,7 @@ html_praise <- paste0(
   emo::ji("face"), "</h2>")
 
 # extra details
-html_footer <- paste0(
+html_footer <- paste(
   "Auto Dict v4.6", "<br>",
   "Created by Artem R.", "<br>",
   emo::ji("octopus"),
