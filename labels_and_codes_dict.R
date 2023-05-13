@@ -23,4 +23,14 @@ DBI::dbSendQuery(
   "
   )
 DBI::dbAppendTable(conn, "labels_and_codes_dict", clear_dict)
+
+# manual fix
+DBI::dbSendQuery(
+  conn, 
+  "
+  DELETE FROM labels_and_codes_dict
+  WHERE block = 'verb' and label in ('[+ question word]', '[+ to infinitive]')
+  "
+)
+
 DBI::dbDisconnect(conn)

@@ -431,7 +431,7 @@ for (i in 1:nrow(selected_words)) {
       "<h1>", temoji, word,
       "<h2>", emo::ji("ru"), word_translate, "<br>",
       "<small>", emo::ji("thirty"), word_date, "<br>",
-      emo::ji("fox_face"), word_source,
+      emo::ji("books"), word_source,
       "</small>", "</h2>",
       "</h1>"
     )
@@ -681,9 +681,18 @@ labels_match <- labels_print %>%
 labels_dict <- dbReadTable(conn, "labels_and_codes_dict") %>% as_tibble()
 
 # emoji labels
-emoji_labels_df <- tiltle_emoji_df %>% 
-  mutate(descr = if_else(iter == 1, "new", paste0("x", iter))) %>% 
-  select(label = emoji, descr)
+emoji_labels_df <- 
+  # fix emoji
+  tibble(
+    label = c(emo::ji("thirty"), emo::ji("books")),
+    descr = c("added / last email on", "added by")
+  ) %>% 
+  # word num emoji
+  add_row(
+    tiltle_emoji_df %>% 
+    mutate(descr = if_else(iter == 1, "new word", paste0("x", iter))) %>% 
+    select(label = emoji, descr)
+  )
 
 # HTML labels block
 html_labels <- labels_dict %>%
@@ -694,7 +703,7 @@ html_labels <- labels_dict %>%
   mutate_at(vars(description), str_replace_all, pattern = ":", replacement = ",") %>% 
   select(label = labels_print, description) %>% 
   nest(data = description) %>% 
-  mutate(descr = map_chr(data, ~ glue_collapse(.$description, sep = ";"))) %>% 
+  mutate(descr = map_chr(data, ~ glue_collapse(.$description, sep = "; "))) %>% 
   select(label, descr) %>% 
   add_row(emoji_labels_df) %>% 
   glue_data("<b>{label}</b>: {descr}") %>% 
