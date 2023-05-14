@@ -26,6 +26,7 @@ max_repeat_cnt = 7L # max iter of word repeating
 meaning_length = 3L # max number of word meanings
 email_secrect <- yaml::read_yaml("email.yaml") # secret config based on list() structure
 invisible(Sys.setlocale("LC_TIME", "English")) # ignoring local time setting
+number_words <- c("one", "two", "three", "four", "five", "six", "seven", "eight", "nine") # don't ask!
 
 
 # Make FUN! ----
@@ -545,9 +546,11 @@ for (i in 1:nrow(selected_words)) {
         group_by(name) %>% 
         filter(row_number() == 1L) %>% 
         ungroup() %>% 
-        glue_data("<li>{data}</li>") %>% 
+        mutate(id = coalesce(number_words[row_number()], "numbers")) %>% 
+        mutate(num = map_chr(id, emo::ji)) %>% 
+        glue_data("{num} {data} <br>") %>% 
         paste0(collapse = "") %>% 
-        glue('{pron_dron}<ol start="1">{html} </ol>', html = .)
+        glue('{pron_dron}<br>{html}', html = .)
     )
   
   # word meaning and examples (in an ugly way)
