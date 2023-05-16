@@ -550,7 +550,7 @@ for (i in 1:nrow(selected_words)) {
         mutate(num = map_chr(id, emo::ji)) %>% 
         glue_data("{num} {data} <br>") %>% 
         paste0(collapse = "") %>% 
-        glue('{pron_dron}<br>{html}', html = .)
+        glue('{pron_dron}<br><br>{html}', html = .)
     )
   
   # word meaning and examples (in an ugly way)
