@@ -33,4 +33,13 @@ DBI::dbSendQuery(
   "
 )
 
+DBI::dbSendQuery(
+  conn, 
+  "
+  UPDATE labels_and_codes_dict
+  SET label = '[+ -ing verb]'
+  WHERE label = '[+ -ing] verb'
+  "
+)
+
 DBI::dbDisconnect(conn)

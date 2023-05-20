@@ -115,6 +115,33 @@ conn <- dbConnect(RSQLite::SQLite(), dbname = "eng_auto_dict.db")
 word_dict <- dbReadTable(conn, "word_dict") %>% as_tibble()
 view(word_dict)
 
+# find_this_word()
 # word_fix()
 # word_fix()
 # send_to_blacklist()
+
+source("lib.R")
+source("web_fun.R")
+
+words_to_check <- 
+  dbGetQuery(
+    conn,
+    "
+    SELECT * FROM word_dict
+    WHERE word_id not in (SELECT word_id FROM word_cambridge_examples)
+    "
+  )
+
+words_to_check_test <- words_to_check %>% 
+  filter(str_detect(word, "[[:space:]]"))
+
+cmb <- list()
+for (i in 1:nrow(words_to_check_test)) {
+  cmb[[i]] <- cambridge_express(words_to_check_test$word[i])
+}
+bad_match_tbl <- map(cmb, as_tibble) %>% 
+  reduce(rbind) %>% 
+  filter(!success) %>% 
+  inner_join(words_to_check_test, by = "word")
+
+view(select(bad_match_tbl, -c(link, success)))

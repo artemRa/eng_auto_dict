@@ -1,0 +1,12 @@
+suppressPackageStartupMessages(
+  suppressWarnings({
+    library(DBI)
+    library(tidyverse)
+    library(rvest)
+    library(blastula)
+    library(glue)
+    library(reticulate)
+    library(tidytext)
+    library(praise)
+  })
+)
